@@ -2,62 +2,54 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 
-# Cargar los datos
-df = pd.read_csv("titanic.csv")
+titanic_data = pd.read_csv("titanic.csv")
 
-# 1. Construir un intervalo de confianza (95%) para la edad promedio
-def intervalo_confianza_edad(data, confianza=0.95):
-    media = data.mean()
-    sem = stats.sem(data, nan_policy='omit')  # Error estándar de la media
-    intervalo = stats.t.interval(confianza, len(data.dropna()) - 1, loc=media, scale=sem)
-    return media, intervalo
+def confidence_interval_age(data, confidence=0.95):
+    mean_age = data.mean()
+    sem = stats.sem(data, nan_policy='omit')  # Standard error of the mean
+    interval = stats.t.interval(confidence, len(data.dropna()) - 1, loc=mean_age, scale=sem)
+    return mean_age, interval
 
-# Calcular intervalo para la edad promedio
-media_edad, intervalo_edad = intervalo_confianza_edad(df['age'])
-print(f"Media de edad: {media_edad:.2f}, Intervalo de confianza al 95%: {intervalo_edad}")
+mean_age, age_interval = confidence_interval_age(titanic_data['age'])
+print(f"Mean age: {mean_age:.2f}, 95% confidence interval: {age_interval}")
 
-# 2. Promedio de edad de mujeres y hombres > 56 años
-def prueba_promedio(data, genero, valor_esperado=56, confianza=0.95):
-    subset = data[data['sex'] == genero]['age']
-    t_stat, p_valor = stats.ttest_1samp(subset.dropna(), valor_esperado)
-    conclusion = p_valor / 2 < 1 - confianza  # Prueba una cola
-    return t_stat, p_valor, conclusion
+def mean_test(data, gender, expected_value=56, confidence=0.95):
+    subset = data[data['gender'] == gender]['age']
+    t_stat, p_value = stats.ttest_1samp(subset.dropna(), expected_value)
+    conclusion = p_value / 2 < 1 - confidence  # One-tailed test
+    return t_stat, p_value, conclusion
 
-# Pruebas de hipótesis para mujeres y hombres
-t_mujeres, p_mujeres, concl_mujeres = prueba_promedio(df, 'female', 56)
-t_hombres, p_hombres, concl_hombres = prueba_promedio(df, 'male', 56)
-print(f"Mujeres - t: {t_mujeres:.2f}, p: {p_mujeres:.4f}, >56 años: {'Sí' if concl_mujeres else 'No'}")
-print(f"Hombres - t: {t_hombres:.2f}, p: {p_hombres:.4f}, >56 años: {'Sí' if concl_hombres else 'No'}")
+t_women, p_women, conclusion_women = mean_test(titanic_data, 'female', 56)
+t_men, p_men, conclusion_men = mean_test(titanic_data, 'male', 56)
+print(f"Women - t: {t_women:.2f}, p: {p_women:.4f}, >56 years: {'Yes' if conclusion_women else 'No'}")
+print(f"Men - t: {t_men:.2f}, p: {p_men:.4f}, >56 years: {'Yes' if conclusion_men else 'No'}")
 
-# 3. Diferencia significativa en la tasa de supervivencia (hombres vs mujeres, clases)
-def prueba_diferencia_tasas(data, grupo1, grupo2, col='survived', confianza=0.99):
-    surv1 = data[data['sex'] == grupo1][col]
-    surv2 = data[data['sex'] == grupo2][col]
-    t_stat, p_valor = stats.ttest_ind(surv1, surv2, nan_policy='omit', equal_var=False)
-    conclusion = p_valor < 1 - confianza
-    return t_stat, p_valor, conclusion
+def survival_rate_difference(data, group1, group2, col='survived', confidence=0.99):
+    survival1 = data[data['gender'] == group1][col]
+    survival2 = data[data['gender'] == group2][col]
+    t_stat, p_value = stats.ttest_ind(survival1, survival2, nan_policy='omit', equal_var=False)
+    conclusion = p_value < 1 - confidence
+    return t_stat, p_value, conclusion
 
-# Tasa de supervivencia por género
-t_sex, p_sex, concl_sex = prueba_diferencia_tasas(df, 'male', 'female')
-print(f"Tasa de supervivencia - Hombres vs Mujeres - t: {t_sex:.2f}, p: {p_sex:.4f}, Diferencia significativa: {'Sí' if concl_sex else 'No'}")
+t_gender, p_gender, conclusion_gender = survival_rate_difference(titanic_data, 'male', 'female')
+print(f"Survival rate - Men vs Women - t: {t_gender:.2f}, p: {p_gender:.4f}, Significant difference: {'Yes' if conclusion_gender else 'No'}")
 
-# Tasa de supervivencia por clase
-for clase1 in df['pclass'].unique():
-    for clase2 in df['pclass'].unique():
-        if clase1 < clase2:
-            surv_clase1 = df[df['pclass'] == clase1]['survived']
-            surv_clase2 = df[df['pclass'] == clase2]['survived']
-            t_clases, p_clases = stats.ttest_ind(surv_clase1, surv_clase2, nan_policy='omit', equal_var=False)
-            print(f"Clase {clase1} vs Clase {clase2} - t: {t_clases:.2f}, p: {p_clases:.4f}")
+for class1 in titanic_data['p_class'].unique():
+    for class2 in titanic_data['p_class'].unique():
+        if class1 < class2:
+            survival_class1 = titanic_data[titanic_data['p_class'] == class1]['survived']
+            survival_class2 = titanic_data[titanic_data['p_class'] == class2]['survived']
+            t_classes, p_classes = stats.ttest_ind(survival_class1, survival_class2, nan_policy='omit', equal_var=False)
+            print(f"Class {class1} vs Class {class2} - t: {t_classes:.2f}, p: {p_classes:.4f}")
 
-# 4. Mujeres más jóvenes que hombres
-def prueba_edad_promedio(data, confianza=0.95):
-    edad_mujeres = data[data['sex'] == 'female']['age']
-    edad_hombres = data[data['sex'] == 'male']['age']
-    t_stat, p_valor = stats.ttest_ind(edad_mujeres, edad_hombres, nan_policy='omit', equal_var=False)
-    conclusion = p_valor < 1 - confianza
-    return t_stat, p_valor, conclusion
+def age_mean_difference(data, confidence=0.95):
+    women_age = data[data['gender'] == 'female']['age']
+    men_age = data[data['gender'] == 'male']['age']
+    t_stat, p_value = stats.ttest_ind(women_age, men_age, nan_policy='omit', equal_var=False)
+    conclusion = p_value < 1 - confidence
+    return t_stat, p_value, conclusion
 
-# Prueba para edades
-t_edades, p_edades, concl_edades = prueba_edad_promedio(df)
-print(f"Edades - Mujeres vs Hombres - t: {t_edades:.2f}, p: {p_edades:.4f}, Mujeres más jóvenes: {'Sí' if concl_edades else 'No'}")
+t_ages, p_ages, conclusion_ages = age_mean_difference(titanic_data)
+print(f"Ages - Women vs Men - t: {t_ages:.2f}, p: {p_ages:.4f}, Women younger: {'Yes' if conclusion_ages else 'No'}")
+
+print(titanic_data.groupby('gender')['survived'].mean())
